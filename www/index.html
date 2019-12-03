@@ -1,0 +1,356 @@
+<!DOCTYPE html> 
+
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <!--<script type="text/javascript" src="cordova.js"></script>-->
+
+    <link rel="stylesheet" href="https://unpkg.com/onsenui/css/onsenui.css">
+    <link rel="stylesheet" href="https://unpkg.com/onsenui/css/onsen-css-components.min.css">
+    <script src="https://unpkg.com/onsenui/js/onsenui.min.js"></script>
+    <script src="jquery-3.4.1.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js"></script>
+    <title>Estacionamiento_CUCEI</title>
+    <script>
+    function obtenerUbicacion(){
+        navigator.geolocation.getCurrentPosition(agregarUbicacion,onError,{timeout: 1000});
+    } 
+    function agregarUbicacion(location){
+        lat=location.coords.latitude;
+        lon=location.coords.longitude;
+        var agregarLugar=new XMLHttpRequest();
+        agregarLugar.onreadystatechange=function(){
+             if(this.readyState==4 && this.status==200){
+                var cadena=agregarLugar.responseText;
+                if(cadena.charAt(0)=='0'){
+                    ons.notification.alert("Ubicacion no guardad");
+                }else{
+                   var datos=new XMLHttpRequest();
+                   datos.onreadystatechange=function(){
+                     if(this.readyState==4 && this.status==200){
+                        var cadena=datos.responseText;
+                        Mapa(cadena);
+                     }
+
+                   }
+                   datos.open("GET", "https://joseramon.000webhostapp.com/AgregarEstacionamiento.php?codigo="+codigo+"&lat="+lat+"&lon="+lon, true);
+                }
+            }
+        }
+
+    }
+        function Mapa(cadena) {
+            var arreglo=JSON.parse(cadena);
+            var conta=Object.keys(arreglo).length;
+            var mapObtions={
+                center: new google.maps.LatLng(20.657185, -103.324903),
+                zoom: 16
+            }
+            var map =new google.maps.Map(document.getElementById('mapa'),mapObtions);
+            for(var i=0; i<conta; i++){
+                var marker= new google.maps.Marker({
+                    position: new google.maps.LatLng(arreglo[i].latitud,arreglo[i].longitud),
+                    map: map,
+                    label: arreglo[i].placas
+                });
+            }
+
+            // body...
+        }
+
+        setTimeout(function(){
+            $("#splashscreen").fadeOut();
+        }, 5000);
+
+        setTimeout(function(){
+            $("#inicio").fadeIn();
+        }, 5500);
+
+        function aleatorio(){
+            return Math.round(Math.random()*100+1);;
+        }
+
+        document.addEventListener("init", function(event){
+            var page=event.target;
+            if(page.id==="pageLogin"){
+                page.querySelector("#buttonEntrar").onclick=function(){
+                    var codigo=page.querySelector("#codigo").value;
+                    var password=page.querySelector("#password").value;
+                    var xhttp=new XMLHttpRequest();
+                    xhttp.onreadystatechange=function(){
+                        if(this.readyState==4 && this.status==200){
+                            var cadena=xhttp.responseText; 
+                            if(cadena.charAt(0)=='0'){
+                                 var verificarBDExterno=new XMLHttpRequest();
+                                verificarBDExterno.onreadystatechange=function(){
+                                    if(this.readyState==4 && this.status==200){
+                                        var cadExterno=verificarBDExterno.responseText;
+                                        if(cadExterno.charAt(0)=='0'){
+                                            ons.notification.alert("No estas registrado en la base de datos usuario externo, favor de registrarte");
+                                            document.querySelector("#myNavigator").pushPage("pageNuevoUsuario.html");
+                                        }else{
+                                            localStorage.setItem("codigo",codigo);
+                                            localStorage.setItem("password",password);
+                                            document.querySelector("#myNavigator").pushPage("pageMapa.html");
+                                        }
+                                    }
+                                }
+                                verificarBDExterno.open("GET", "https://joseramon.000webhostapp.com/VerificarBaseExterna.php?codigo="+codigo+"&password="+password, true);
+                                verificarBDExterno.send();
+                            }else{
+                                  var arreglo=cadena.split(",");
+                                var verificarBD=new XMLHttpRequest();
+                                verificarBD.onreadystatechange=function(){
+                                    if(this.readyState==4 && this.status==200){
+                                        var cadena=verificarBD.responseText;
+                                        if(cadena.charAt(0)=='0'){
+                                            ons.notification.alert("No estas registrado, favor de registrarse");
+                                            page.querySelector("#bienvenida").innerHTML="Hola "+arreglo[2];
+                                            var modal=document.querySelector("ons-modal");
+                                            modal.show();
+                                            page.querySelector("#buttonSalvar").onclick=function(){
+                                                var placas=page.querySelector("#placas").value;
+                                                var telefono=page.querySelector("#telefono").value;
+                                                if(placas.length>0&&telefono.length>0){
+                                                    modal.hide();
+                                                    var agregarBD=new XMLHttpRequest();
+                                                    agregarBD.onreadystatechange=function(){
+                                                        if(this.readyState==4 && this.status==200){
+                                                            var cadena=agregarBD.responseText; 
+                                                            if(cadena.charAt(0)=='0'){
+                                                                ons.notification.alert("Error");
+                                                            }else{
+                                                                localStorage.setItem("codigo",codigo);
+                                                                localStorage.setItem("password",password);
+                                                                document.querySelector("#myNavigator").pushPage("pageMapa.html");
+                                                            }
+                                                        }
+                                                    }
+                                                    agregarBD.open("GET", "https://joseramon.000webhostapp.com/agregarBase.php?codigo="+codigo+"&nombre="+arreglo[2]+"&placas="+placas+"&telefono="+telefono+"&password=", true);
+                                                    agregarBD.send();
+                                                }else{
+                                                    ons.notification.alert("Obligatorio llenar todos los campos");
+                                                }
+                                            }
+                                        }else{
+                                            localStorage.setItem("codigo",codigo);
+                                            localStorage.setItem("password",password);
+                                            document.querySelector("#myNavigator").pushPage("pageMapa.html");
+                                        }
+                                    }
+                                }
+                                verificarBD.open("GET", "https://joseramon.000webhostapp.com/VerificarBase.php?codigo="+codigo, true);
+                                verificarBD.send();  
+                            }
+                        }
+                    }
+                    xhttp.open("GET", "http://dcc.000webhostapp.com/2018/datosudeg.php?codigo="+codigo+"&nip="+password, true);
+                    xhttp.send();
+                }
+                page.querySelector("#nuevoUsuario").onclick=function(){
+                    document.querySelector("#myNavigator").pushPage("pageNuevoUsuario.html");
+                }
+            }else if(page.id==="pageNuevoUsuario"){
+                 page.querySelector("#buttonAlta").onclick=function(){
+                    var codigo=page.querySelector("#codigoNuevoUsuario").innerHTML; 
+                    var nombre=page.querySelector("#nombreNuevoUsuario").value;
+                    var placas=page.querySelector("#placasNuevoUsuario").value;
+                    var telefono=page.querySelector("#telefonoNuevoUsuario").value;
+                    var password=page.querySelector("#passwordNuevoUsuario").value;
+                    if(nombre.length>0&&placas.length>0&&telefono.length>0&&password.length>0){
+                        var verificarBDExterno=new XMLHttpRequest();
+                        verificarBDExterno.onreadystatechange=function(){
+                            if(this.readyState==4 && this.status==200){
+                                var cadena=verificarBDExterno.responseText; 
+                                if(cadena.charAt(0)=='0'){
+                                    var agregarBDExterno=new XMLHttpRequest();
+                                    agregarBDExterno.onreadystatechange=function(){
+                                        if(this.readyState==4 && this.status==200){
+                                            var cadena=agregarBDExterno.responseText;
+                                            if(cadena.charAt(0)=='0'){
+                                                ons.notification.alert("Error");
+                                            }else{
+                                                localStorage.setItem("codigo",codigo);
+                                                localStorage.setItem("password",password);
+                                                document.querySelector("#myNavigator").pushPage("pageMapa.html");
+                                            }
+                                        }
+                                    }
+                                    agregarBDExterno.open("GET", "https://joseramon.000webhostapp.com/agregarBaseExterna.php?codigo="+codigo+"&nombre="+nombre+"&placas="+placas+"&telefono="+telefono+"&password="+password, true);
+                                    agregarBDExterno.send();
+                                }else{
+                                    ons.notification.alert("Usuario ya registrado");
+                                }
+                            }
+                        }
+                        verificarBDExterno.open("GET", "https://joseramon.000webhostapp.com/VerificarBaseExterna.php?codigo="+codigo+"&password="+
+                            password, true);
+                        verificarBDExterno.send();
+                    }else{
+                        ons.notification.alert("Campos obligatiros");
+                    }
+                }
+               
+            }else if(page.id==="pageMapa"){
+                page.querySelector("#Estoyaqui").onclick=function(){
+                    obtenerUbicacion();
+
+                }
+                page.querySelector("#Quitarlugar").onclick=function(){
+                    
+                }
+                page.querySelector("#Salir").onclick=function(){
+                    
+                }
+                var datos= new  XMLHttpRequest();
+                datos.onreadystatechange=function(){
+                    if (this.readyState==4 && this.status==200) {
+                        var cadena=datos.responseText;
+                        Mapa(cadena);
+                    }
+                }
+                datos.open("GET","https://joseramon.000webhostapp.com/MostrarEstacionamiento.php",true);
+                datos.send();
+            }
+        });
+    </script>
+
+    <style>
+        .center{
+            text-align: center;
+        }
+        .col{
+
+            padding: 5px;
+        }   
+        
+        #pageLogin .page__background {
+            background-color: #F7F780;
+        }
+        #pageNuevoUsuario .page__background {
+            background-color: #F7F780;
+        }
+        #pageMapa .page__background {
+            background-color: #F7F780;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <ons-navigator swipeable id="myNavigator" page="pageLogin.html"></ons-navigator>
+
+    <template id="pageLogin.html">
+        <ons-page id="pageLogin">
+            <div class="center" id="splashscreen">
+                <img width="95%" height="95%" src="https://pngimage.net/wp-content/uploads/2018/06/logo-estacionamiento-png-5.png">
+            </div>
+            <div id="inicio" style="display: none;">
+                <center>
+                    <ons-toolbar>
+                        <div class="center">Bienvenido</div>
+                    </ons-toolbar>
+                    <h1 style="margin-top: 80px;">CUCEI</h1>
+                    <img src="http://sbc.mx/imagenes/logos/5.png" width="300" height="300">
+                    <br><br>
+                    <ons-list modifier="inset">
+                        <ons-list-header class="center font">Login</ons-list-header>
+                        <ons-list-item class="col"><ons-input input-id="codigo" placeholder="Codigo" type="number" modifier="underbar"></ons-input></ons-list-item>
+                        <ons-list-item class="col"><ons-input input-id="password" placeholder="Password" type="password" modifier="underbar"></ons-input></ons-list-item>
+                        <ons-row>
+                            <ons-col><div class="col center"><ons-button id="buttonEntrar">Entrar</ons-button></div></ons-col>
+                        </ons-row>
+                    </ons-list>
+                    <br>
+                    <b><label id="nuevoUsuario">Nuevo Registro</label></b>
+                    <br><br>
+                    <ons-modal direction="up">
+                        <ons-list modifier="inset">
+                            <ons-list-header class="center font"><label id="bienvenida"></label></ons-list-header>
+                            <ons-list-item class="col"><ons-input input-id="placas" placeholder="Placas" type="text" modifier="underbar" maxlength="8"></ons-input></ons-list-item>
+                            <ons-list-item class="col"><ons-input input-id="telefono" placeholder="Telefono" type="tel" modifier="underbar" maxlength="10"></ons-input></ons-list-item>
+                            <ons-row>
+                                <ons-col><div class="col center"><ons-button id="buttonSalvar">Guardar</ons-button></div></ons-col>
+                            </ons-row>
+                        </ons-list>
+                    </ons-modal>
+                </center>
+            </div>
+        </ons-page>
+    </template>
+
+    <template id="pageNuevoUsuario.html">
+        <ons-page id="pageNuevoUsuario">
+            <center>
+                <ons-toolbar>
+                    <div><ons-back-button>Regresar</ons-back-button></div>
+                    <div class="center">Nuevo usuario</div>
+                </ons-toolbar>
+                <h1 style="margin-top: 80px"></h1>
+                <ons-list modifier="inset">
+                    <ons-row align="center">
+                        <ons-col><div class="col"><label>Codigo: </label></div></ons-col>
+                        <ons-col><div class="col"><label id="codigoNuevoUsuario"></label></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col center"><label>Nombre</label></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col"><ons-input input-id="nombreNuevoUsuario" placeholder="Nombre" type="text" modifier="underbar"></ons-input></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col center"><label>Placas</label></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col"><ons-input input-id="placasNuevoUsuario" placeholder="Placas" type="text" modifier="underbar" maxlength="8"></ons-input></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col center"><label>Telefono</label></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col"><ons-input input-id="telefonoNuevoUsuario" placeholder="Telefono" type="tel" modifier="underbar" maxlength="10"></ons-input></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col center"><label>Password</label></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col"><ons-input input-id="passwordNuevoUsuario" placeholder="Password" type="password" modifier="underbar" maxlength="10"></ons-input></div></ons-col>
+                    </ons-row>
+                    <ons-row>
+                        <ons-col><div class="col center"><ons-button id="buttonAlta">Guardar</ons-button></div></ons-col>
+                    </ons-row>
+                </ons-list>
+                <br>
+            </center>
+        </ons-page>
+    </template>
+
+    <template id="pageMapa.html">
+        <ons-page id="pageMapa">
+            <center>
+                <ons-toolbar>
+                    <div><ons-back-button>Regresar</ons-back-button></div>
+                    <div class="center">Mapa</div>
+                </ons-toolbar>
+                <div style="margin-top:80px;">
+
+
+                    <center>
+                        <div id="mapa" style="width: 300px; height: 300px;">
+                            
+                        </div>
+
+                    </center>
+                </div>
+                <div style="margin: 10px;"><ons-button id="Estoyaqui">Estoy aqui</ons-button></div>
+                <div style="margin: 10px;"><ons-button id="Quitarlugar">Quitar lugar</ons-button></div>
+                 <div style="margin: 10px;"><ons-button id="Salir">Salir</ons-button></div>
+            </center>
+        </ons-page>
+    </template>
+
+</body>
+
+</html>
